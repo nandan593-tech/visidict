@@ -5,11 +5,11 @@ and sends data (state + video frames) to Node.js backend smoothly.
 """
 
 import os
-# Suppress OpenCV and FFmpeg C-level logging
+# Suppress OpenCV and FFmpeg C-level logging & disable input buffering
 os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "-8"
 os.environ["OPENCV_LOG_LEVEL"] = "OFF"
 os.environ["OPENCV_VIDEOIO_DEBUG"] = "0"
-os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;3000000"
+os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "fflags;nobuffer|flags;low_delay|max_delay;0|timeout;3000000"
 
 import cv2
 import sys
@@ -211,13 +211,17 @@ class ThreadedCamera:
 
         while self.running:
             with suppress_stderr():
-                ret, frame = self.cap.read()
+                grabbed = self.cap.grab()
+                if not grabbed:
+                    time.sleep(0.005)
+                    continue
+                ret, frame = self.cap.retrieve()
             if ret and frame is not None and frame.size > 0:
                 with self.lock:
                     self.ret = True
                     self.frame = frame
             else:
-                time.sleep(0.01)
+                time.sleep(0.005)
 
         if self.cap:
             try:
@@ -287,6 +291,9 @@ def load_env_file():
             load_dotenv(env_path)
         except Exception:
             pass
+
+# Immediately load .env variables on import
+load_env_file()
 
 
 def load_camera_url():
@@ -408,6 +415,8 @@ def quick_check_url(url, timeout=3.0):
         return False
 
 
+import re
+
 def normalize_camera_url(raw_input):
     """Normalizes user input into a proper camera source URL or index 0."""
     raw = str(raw_input).strip()
@@ -415,13 +424,26 @@ def normalize_camera_url(raw_input):
         return 0
     if raw.isdigit():
         return int(raw)
-    if not (raw.startswith("http://") or raw.startswith("https://") or raw.startswith("rtsp://")):
-        raw = f"http://{raw}"
-    parsed = urlsplit(raw)
-    if not parsed.path or parsed.path == "/":
-        port = f":{parsed.port}" if parsed.port else ":8080"
-        return f"{parsed.scheme}://{parsed.hostname}{port}/video"
-    return raw
+
+    # In case user accidentally pasted text containing brackets or prompt text
+    url_match = re.search(r'(https?://[^\s\]\)\'"]+)', raw)
+    if url_match:
+        raw = url_match.group(1)
+    else:
+        ip_match = re.search(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?::\d+)?)', raw)
+        if ip_match:
+            raw = f"http://{ip_match.group(1)}"
+        elif not (raw.startswith("http://") or raw.startswith("https://") or raw.startswith("rtsp://")):
+            raw = f"http://{raw}"
+
+    try:
+        parsed = urlsplit(raw)
+        if not parsed.path or parsed.path == "/":
+            port = f":{parsed.port}" if parsed.port else ":8080"
+            return f"{parsed.scheme}://{parsed.hostname}{port}/video"
+        return raw
+    except Exception:
+        return raw
 
 
 def establish_camera_connection(initial_source, pending_save=None):
@@ -711,7 +733,7 @@ def resolve_initial_camera_source():
 
 
 # Model and Network Settings
-BACKEND_URL = os.environ.get("BACKEND_URL") or "http://localhost:5000"
+BACKEND_URL = os.environ.get("BACKEND_URL") or "https://visidict-backend.onrender.com"
 SHOW_LOCAL_WINDOW = False  # Set to True if running manually in an interactive terminal
 
 ABSENCE_THRESHOLD_SECONDS = 5    # Time in seconds before marking employee ABSENT when undetected
@@ -758,7 +780,8 @@ def disconnect():
 
 
 try:
-    sio.connect(BACKEND_URL)
+    print(f"[Socket] Connecting to cloud backend at {BACKEND_URL} ...")
+    sio.connect(BACKEND_URL, wait_timeout=30)
 except Exception as e:
     print(f"[WARN] Could not connect to backend initially: {e}")
 
@@ -896,12 +919,55 @@ class AsyncAIInferenceWorker:
         self.running = False
 
 
+class AsyncFrameSender:
+    """
+    Asynchronous network streamer that transmits video frames to the cloud backend.
+    Drops stale backlogged frames whenever network latency slows down,
+    guaranteeing ZERO video lag on the dashboard.
+    """
+    def __init__(self, sio):
+        self.sio = sio
+        self.latest_payload = None
+        self.lock = threading.Lock()
+        self.running = True
+        self.thread = threading.Thread(target=self._sender_loop, daemon=True)
+        self.thread.start()
+
+    def submit(self, payload):
+        with self.lock:
+            self.latest_payload = payload
+
+    def _sender_loop(self):
+        last_send_time = 0
+        min_interval = 0.05  # Up to 20 FPS max network rate
+        while self.running:
+            payload_to_send = None
+            now = time.time()
+            if now - last_send_time >= min_interval:
+                with self.lock:
+                    if self.latest_payload is not None:
+                        payload_to_send = self.latest_payload
+                        self.latest_payload = None
+
+                if payload_to_send is not None and self.sio.connected:
+                    try:
+                        self.sio.emit('detection_frame', payload_to_send)
+                        last_send_time = time.time()
+                    except Exception:
+                        pass
+            time.sleep(0.005)
+
+    def stop(self):
+        self.running = False
+
+
 def main():
     global connected
 
     saved_url = load_camera_url()
     cap = None
     ai_worker = AsyncAIInferenceWorker(model)
+    frame_sender = AsyncFrameSender(sio)
 
     print("\n" + "=" * 62)
     print("             VISIDICT AI SERVICE - CAMERA SETUP")
@@ -947,19 +1013,27 @@ def main():
                 print(f"=======================================================")
             print("Successfully connected to camera and verified video stream!\n")
 
-            # Active streaming loop (constant 25 FPS)
+            if not sio.connected:
+                try:
+                    print(f"[Socket] Connecting to cloud backend at {BACKEND_URL} ...")
+                    sio.connect(BACKEND_URL, wait_timeout=20)
+                except Exception as e:
+                    print(f"[Socket] Will retry cloud connection in background: {e}")
+
+            # Active streaming loop (optimized 15 FPS for real-time cloud streaming)
             print("AI Service running smoothly... Press Ctrl+C to stop.")
-            target_fps = 25
+            target_fps = 15
             frame_interval = 1.0 / target_fps
             consecutive_failures = 0
             stream_active = True
+            last_reconnect_attempt = 0
 
             while stream_active:
                 start_time = time.time()
                 ret, frame = cap.read()
                 if not ret or frame is None:
                     consecutive_failures += 1
-                    if consecutive_failures > 75:  # ~3 seconds at 25fps
+                    if consecutive_failures > 45:  # ~3 seconds at 15fps
                         print(f"\nCamera stream disconnected. Reconnecting to {camera_source}...")
                         stream_active = False
                         break
@@ -972,8 +1046,8 @@ def main():
                 if ROTATE_FRAME:
                     frame = apply_rotation(frame, ROTATE_FRAME)
 
-                # Resize frame to max 640px width, preserving aspect ratio for portrait/landscape
-                frame = resize_preserve_aspect(frame, max_width=640)
+                # Resize frame to max 440px width (ultra-lightweight payload for zero internet lag)
+                frame = resize_preserve_aspect(frame, max_width=440)
 
                 # Submit frame asynchronously to AI inference worker
                 ai_worker.submit_frame(frame)
@@ -1018,29 +1092,28 @@ def main():
                 cv2.putText(frame, status_text, (12, 14 + th),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.75, color, 2)
 
-                # Fast JPEG encoding (58% quality for minimal compression latency & bandwidth)
-                _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 58])
+                # Fast JPEG encoding (42% quality for ultra-low latency streaming)
+                _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 42])
                 frame_b64 = base64.b64encode(buffer).decode('utf-8')
 
-                # Send to Node.js via Socket.io
-                if connected:
-                    payload = {
-                        "frame": f"data:image/jpeg;base64,{frame_b64}",
-                        "status": status,
-                        "confidence": float(round(max_conf, 2)),
-                        "employeeId": EMPLOYEE_ID,
-                        "justChanged": just_changed
-                    }
-                    try:
-                        sio.emit('detection_frame', payload)
-                    except Exception:
-                        pass
-                else:
-                    # Try background reconnect
-                    try:
-                        sio.connect(BACKEND_URL)
-                    except Exception:
-                        pass
+                # Send to Node.js via non-blocking frame sender (drops stale backlog frames to eliminate lag)
+                payload = {
+                    "frame": f"data:image/jpeg;base64,{frame_b64}",
+                    "status": status,
+                    "confidence": float(round(max_conf, 2)),
+                    "employeeId": EMPLOYEE_ID,
+                    "justChanged": just_changed
+                }
+                frame_sender.submit(payload)
+
+                if not sio.connected:
+                    now_ts = time.time()
+                    if now_ts - last_reconnect_attempt > 3.0:
+                        last_reconnect_attempt = now_ts
+                        try:
+                            sio.connect(BACKEND_URL, wait_timeout=10)
+                        except Exception:
+                            pass
 
                 if SHOW_LOCAL_WINDOW:
                     cv2.imshow("AI Presence Detection Service", frame)
@@ -1048,6 +1121,7 @@ def main():
                         cap.release()
                         cv2.destroyAllWindows()
                         ai_worker.stop()
+                        frame_sender.stop()
                         if connected:
                             sio.disconnect()
                         return
@@ -1072,6 +1146,7 @@ def main():
             except Exception:
                 pass
         ai_worker.stop()
+        frame_sender.stop()
         if connected:
             try:
                 sio.disconnect()

@@ -109,7 +109,11 @@ export default function Dashboard() {
     fetchHistory();
     fetchNotifications();
 
-    socketRef.current = io(SOCKET_URL);
+    socketRef.current = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 3000,
+    });
 
     socketRef.current.on('live_feed', (data) => {
       if (!data) return;

@@ -38,8 +38,8 @@ io.on('connection', (socket) => {
     socket.on('detection_frame', async (data) => {
         // data expected: { frame: "base64...", status: "PRESENT"|"ABSENT"|"CHECKING", employeeId: "...", confidence: 0.x }
         
-        // Broadcast to web clients immediately for smooth real-time video stream
-        socket.broadcast.emit('live_feed', data);
+        // Broadcast to web clients using volatile to immediately drop any stale/backlogged frames
+        socket.broadcast.volatile.emit('live_feed', data);
 
         if (data.status && data.employeeId) {
             const date = new Date().toISOString().split('T')[0];

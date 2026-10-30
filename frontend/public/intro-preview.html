@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VISIDICT Intro — Light Split</title>
+<style>
+  :root {
+    --color-primary: #4F46E5;
+    --color-primary-hover: #4338CA;
+    --color-secondary: #A5B4FC;
+    --color-bg: #F3F4F6;
+    --color-bg-alt: #E5E7EB;
+    --color-text: #1F2937;
+    --color-text-muted: rgba(31, 41, 55, 0.7);
+    --color-accent: #9CA3AF;
+
+    --navy: #1F2937;
+    --rose: #4F46E5;
+    --cream: #F3F4F6;
+    --rose-bright: #A5B4FC;
+    --rose-soft: rgba(165, 180, 252, 0.75);
+  }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--cream);
+    overflow: hidden;
+    font-family: Georgia, 'Times New Roman', serif;
+  }
+
+  #intro {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: var(--cream);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    perspective: 1000px;
+    overflow: hidden;
+    will-change: opacity, filter, transform;
+  }
+  #intro.hide { animation: introOut 0.7s cubic-bezier(0.8, 0, 0.2, 1) forwards; }
+  @keyframes introOut {
+    0%   { opacity: 1; filter: blur(0px); transform: scale(1); }
+    100% { opacity: 0; filter: blur(30px); transform: scale(1.15); visibility: hidden; }
+  }
+
+  .intro-container {
+    position: relative;
+    width: 100%;
+    max-width: 600px;
+    height: 340px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform-style: preserve-3d;
+  }
+  .intro-container.shake { animation: filmShake 0.4s ease-in-out; }
+  @keyframes filmShake {
+    0%, 100% { transform: translate3d(0,0,0); }
+    20% { transform: translate3d(-6px, 3px, 0); }
+    40% { transform: translate3d(5px, -4px, 0); }
+    60% { transform: translate3d(-4px, 2px, 0); }
+    80% { transform: translate3d(3px, -2px, 0); }
+  }
+
+  /* faint paper-grain texture, background feel */
+  .paper {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(165, 180, 252, 0.03), transparent 65%);
+    pointer-events: none;
+  }
+
+  /* ===== Camera glyph, blueprint-style linework ===== */
+  .intro-cam {
+    position: absolute;
+    width: 260px;
+    height: 230px;
+    opacity: 0;
+    transform-style: preserve-3d;
+    animation: camIn3d 1s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.1s,
+               camHold 2.4s ease-in-out infinite 1.1s;
+    will-change: transform, opacity, filter;
+  }
+  .intro-cam svg { width: 100%; height: 100%; overflow: visible; }
+  .cam-line {
+    fill: none;
+    stroke: var(--navy);
+    stroke-width: 4.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .dot { fill: var(--navy); opacity: 0; }
+
+  @keyframes camIn3d {
+    0%   { opacity: 0; filter: blur(24px); transform: rotateY(180deg) rotateX(60deg) translateZ(-400px) scale(0.15); }
+    50%  { opacity: 1; filter: blur(2px); }
+    75%  { transform: rotateY(-14deg) rotateX(-9deg) translateZ(50px) scale(1.08); filter: blur(0); }
+    100% { opacity: 1; filter: blur(0); transform: rotateY(0deg) rotateX(0deg) translateZ(0) scale(1); }
+  }
+  /* idle hold: soft secondary halo breathing behind the linework */
+  @keyframes camHold {
+    0%, 100% { filter: drop-shadow(0 0 5px var(--rose-soft)) drop-shadow(0 0 0 transparent); }
+    50%      { filter: drop-shadow(0 0 16px var(--rose-soft)) drop-shadow(0 0 30px rgba(165, 180, 252, 0.45)); }
+  }
+
+  .body    { stroke-dasharray: 620; stroke-dashoffset: 620; animation: draw 0.7s ease forwards 0.35s; }
+  .hood    { stroke-dasharray: 260; stroke-dashoffset: 260; animation: draw 0.4s ease forwards 0.75s; }
+  .ear     { stroke-dasharray: 60;  stroke-dashoffset: 60;  animation: draw 0.2s ease forwards 0.95s; }
+  .lensRing{ stroke-dasharray: 302; stroke-dashoffset: 302; animation: draw 0.55s ease forwards 0.85s; }
+  .lensCore{ stroke-dasharray: 151; stroke-dashoffset: 151; animation: draw 0.4s ease forwards 1.15s; }
+  .neck    { stroke-dasharray: 90;  stroke-dashoffset: 90;  animation: draw 0.25s ease forwards 0.75s; }
+  .cyl     { stroke-dasharray: 160; stroke-dashoffset: 160; animation: draw 0.3s ease forwards 0.85s; }
+  .plate   { stroke-dasharray: 220; stroke-dashoffset: 220; animation: draw 0.35s ease forwards 0.95s; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes dotIn { to { opacity: 1; } }
+
+  .intro-cam.exit { animation: camOut3d 0.6s cubic-bezier(0.7, 0, 0.84, 0) forwards !important; }
+  @keyframes camOut3d {
+    0%   { opacity: 1; filter: blur(0); transform: rotateY(0) rotateX(0) translateZ(0) scale(1); }
+    25%  { filter: blur(6px); transform: rotateY(20deg) rotateX(-10deg) translateZ(60px) scale(1.15); }
+    100% { opacity: 0; filter: blur(30px); transform: rotateY(140deg) rotateX(-60deg) translateZ(-450px) scale(0.25); }
+  }
+
+  /* ===== Brand wordmark: VISI text / DICT primary ===== */
+  .intro-brand {
+    position: absolute;
+    text-align: center;
+    font-size: clamp(42px, 8vw, 68px);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    opacity: 0;
+    transform-style: preserve-3d;
+    transform: rotateX(85deg) rotateY(-35deg) translateZ(-180px) scale(0.5);
+    will-change: transform, opacity, filter;
+    color: var(--navy);
+  }
+  .intro-brand.show { animation: brandIn3d 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  @keyframes brandIn3d {
+    0%   { opacity: 0; filter: blur(20px); transform: rotateX(-75deg) rotateY(45deg) translateZ(-550px) scale(0.3); }
+    35%  { opacity: 1; filter: blur(3px); }
+    70%  { transform: rotateX(7deg) rotateY(-5deg) translateZ(35px) scale(1.06); filter: blur(0); }
+    100% { opacity: 1; filter: blur(0); transform: rotateX(0) rotateY(0) translateZ(0) scale(1); }
+  }
+
+  /* two-tone split: VISI in text, DICT in primary */
+  .intro-brand .letter:nth-child(-n+4) { color: var(--navy); text-shadow: 0 0 20px rgba(31, 41, 55, 0.25); }
+  .intro-brand .letter:nth-child(n+5)  { color: var(--rose); text-shadow: 0 0 22px rgba(79, 70, 229, 0.55); }
+  .intro-brand .rule {
+    display: block;
+    width: 64px;
+    height: 2px;
+    margin: 0.5rem auto 0.6rem;
+    background: var(--navy);
+    opacity: 0.35;
+  }
+  .intro-brand .tagline {
+    display: block;
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    font-size: 0.28em;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    color: rgba(31, 41, 55, 0.5);
+  }
+
+  /* brief film flash */
+  .intro-flash {
+    position: absolute;
+    inset: 0;
+    background: var(--navy);
+    opacity: 0;
+    pointer-events: none;
+    mix-blend-mode: normal;
+  }
+  .intro-flash.active { animation: filmFlash 0.4s ease-out forwards; }
+  @keyframes filmFlash {
+    0%   { opacity: 0; }
+    12%  { opacity: 0.5; }
+    100% { opacity: 0; }
+  }
+  .intro-vignette {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 45%, rgba(31, 41, 55, 0.14) 100%);
+  }
+</style>
+</head>
+<body>
+
+  <div id="intro">
+    <div class="intro-container">
+      <div class="paper"></div>
+
+      <div class="intro-cam">
+        <svg viewBox="0 0 340 300">
+          <path class="cam-line ear" d="M 58 148 L 38 160 L 55 174" />
+          <path class="cam-line hood" d="M 46 152 L 128 92 L 268 84" />
+          <path class="cam-line body"
+            d="M 62 158 L 132 102 L 270 92 Q 292 91 293 111 L 296 164
+               Q 297 184 277 190 L 158 220 L 108 238
+               Q 82 246 66 226 L 62 158 Z" />
+          <circle class="cam-line lensRing" cx="98" cy="196" r="48" />
+          <circle class="cam-line lensCore" cx="98" cy="196" r="24" />
+          <g class="leds"></g>
+          <path class="cam-line neck" d="M 178 224 L 196 246" />
+          <path class="cam-line cyl"
+            d="M 188 246 Q 188 260 210 260 Q 232 260 232 246 L 232 272
+               Q 232 286 210 286 Q 188 286 188 272 Z" />
+          <path class="cam-line plate" d="M 232 252 L 278 232 L 278 300 L 232 278 Z" />
+          <circle class="dot" style="animation: dotIn 0.15s ease forwards 1.0s;" cx="248" cy="241" r="3.2" />
+          <circle class="dot" style="animation: dotIn 0.15s ease forwards 1.03s;" cx="268" cy="238" r="3.2" />
+          <circle class="dot" style="animation: dotIn 0.15s ease forwards 1.06s;" cx="248" cy="291" r="3.2" />
+          <circle class="dot" style="animation: dotIn 0.15s ease forwards 1.09s;" cx="268" cy="294" r="3.2" />
+        </svg>
+      </div>
+
+      <div class="intro-brand">
+        <span class="letter">V</span><span class="letter">I</span><span class="letter">S</span><span class="letter">I</span><span class="letter">D</span><span class="letter">I</span><span class="letter">C</span><span class="letter">T</span>
+        <span class="rule"></span>
+        <span class="tagline">PRESENCE INTELLIGENCE</span>
+      </div>
+    </div>
+
+    <div class="intro-flash"></div>
+    <div class="intro-vignette"></div>
+  </div>
+
+  <script>
+    const ledGroup = document.querySelector('.leds');
+    const cx = 98, cy = 196, r = 36, count = 14;
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      const x = cx + r * Math.cos(angle);
+      const y = cy + r * Math.sin(angle);
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', x.toFixed(1));
+      c.setAttribute('cy', y.toFixed(1));
+      c.setAttribute('r', '2.4');
+      c.setAttribute('class', 'dot');
+      c.style.animation = `dotIn 0.12s ease forwards ${(0.8 + i * 0.025).toFixed(2)}s`;
+      ledGroup.appendChild(c);
+    }
+
+    const intro = document.getElementById('intro');
+    const cam = intro.querySelector('.intro-cam');
+    const brand = intro.querySelector('.intro-brand');
+    const flash = intro.querySelector('.intro-flash');
+    const container = intro.querySelector('.intro-container');
+
+    const CUT_AT = 3200;
+    const BRAND_HOLD = 1600;
+    const BRAND_SETTLE = 800;
+
+    setTimeout(() => {
+      if (cam) cam.classList.add('exit');
+      if (brand) brand.classList.add('show');
+      if (flash) flash.classList.add('active');
+      if (container) container.classList.add('shake');
+    }, CUT_AT);
+
+    setTimeout(() => { intro.classList.add('hide'); }, CUT_AT + BRAND_SETTLE + BRAND_HOLD);
+    setTimeout(() => { intro.remove(); }, CUT_AT + BRAND_SETTLE + BRAND_HOLD + 600);
+  </script>
+</body>
+</html>

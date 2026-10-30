@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#1F2937" flood-opacity="0.1" />
+    </filter>
+  </defs>
+
+  <!-- Clean rounded background squircle base -->
+  <rect width="64" height="64" rx="14" fill="#F3F4F6" filter="url(#shadow)"/>
+  <rect width="62" height="62" x="1" y="1" rx="13" fill="none" stroke="#1F2937" stroke-width="1.2" stroke-opacity="0.12"/>
+
+  <!-- Left arm of the signature V mark in Text (#1F2937) -->
+  <path d="M 12 15 L 24.5 15 L 32 46 L 24.5 46 Z" fill="#1F2937"/>
+
+  <!-- Right arm of the signature V mark in Primary (#4F46E5) -->
+  <path d="M 52 15 L 39.5 15 L 32 46 L 39.5 46 Z" fill="#4F46E5"/>
+
+  <!-- Presence AI Aperture Core / Sensor Dot -->
+  <circle cx="32" cy="24" r="5" fill="#1F2937"/>
+  <circle cx="32" cy="24" r="2.6" fill="#A5B4FC"/>
+</svg>

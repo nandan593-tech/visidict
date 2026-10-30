@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment files (never commit secrets like database credentials)
+.env
+.env.local
+.env.*.local
+backend/.env
+ai-service/.env
+frontend/.env.local
+!*.env.example
+
+# Python
+__pycache__/
+*/__pycache__/
+*.py[cod]
+*$py.class
+env/
+venv/
+ENV/
+dist/
+build/
+*.egg-info/
+
+# YOLO / Training runs
+runs/
+
+# IDE & OS
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+

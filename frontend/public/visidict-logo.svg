@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 70" width="340" height="70">
+  <style>
+    .word-visi {
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-weight: 900;
+      font-size: 58px;
+      fill: #1F2937;
+      letter-spacing: 0.02em;
+    }
+    .word-dict {
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-weight: 900;
+      font-size: 58px;
+      fill: #4F46E5;
+      letter-spacing: 0.02em;
+    }
+  </style>
+  <text x="10" y="55">
+    <tspan class="word-visi">VISI</tspan><tspan class="word-dict">DICT</tspan>
+  </text>
+</svg>

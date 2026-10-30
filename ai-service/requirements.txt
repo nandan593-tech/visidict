@@ -1,0 +1,4 @@
+ultralytics==8.0.228
+opencv-python
+requests
+python-socketio[client]
